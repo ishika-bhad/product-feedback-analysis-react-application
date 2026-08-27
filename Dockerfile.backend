@@ -1,0 +1,31 @@
+FROM python:3.13-slim
+
+# Install build dependencies if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies using uv (creates .venv)
+RUN uv sync --frozen --no-dev
+
+# Install spaCy model
+RUN uv run python -m spacy download en_core_web_sm
+
+# Copy the application code
+COPY backend/ ./backend/
+
+# Create a directory for persistent SQLite data
+RUN mkdir -p /app/data
+
+EXPOSE 8000
+
+# Run uvicorn server via uv run
+CMD ["uv", "run", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
